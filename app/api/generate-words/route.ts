@@ -187,12 +187,12 @@ Difficulty guidance: ${difficultyPrompts[difficulty]}.`;
     if (!wordPair) {
       console.warn('⚠️  AI response invalid or parse failed. Falling back to local words.');
       wordPair = getRandomWordPair(difficulty);
-      return NextResponse.json({ wordPair, source: 'fallback-parse-error' , geminiApiKey: geminiApiKey });
+      return NextResponse.json({ wordPair, source: 'fallback-parse-error' });
     }
 
     console.log('✓ Successfully generated word pair from Gemini!');
     console.log('Word pair:', wordPair);
-    return NextResponse.json({ wordPair, source: 'gemini' , geminiApiKey: geminiApiKey });
+    return NextResponse.json({ wordPair, source: 'gemini'  });
   } catch (err) {
     console.error('=== ERROR in generate-words handler ===');
     console.error('Error type:', err instanceof Error ? err.constructor.name : typeof err);
@@ -201,6 +201,6 @@ Difficulty guidance: ${difficultyPrompts[difficulty]}.`;
     console.log('Returning fallback words due to error');
     // On any error return local fallback
     const fallback = getRandomWordPair(difficulty);
-    return NextResponse.json({ wordPair: fallback, source: 'fallback-error' , geminiApiKey: geminiApiKey });
+    return NextResponse.json({ wordPair: fallback, source: 'fallback-error'  });
   }
 }

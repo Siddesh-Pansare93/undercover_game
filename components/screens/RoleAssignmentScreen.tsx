@@ -163,8 +163,8 @@ export default function RoleAssignmentScreen() {
                     ) : (
                       <div>
                         <p className="text-3xl font-bold text-white mb-2">❓</p>
-                        <p className="text-white/80 text-sm">
-                          You have no word!
+                        <p className="text-white/80 text-2xl">
+                         You have no word!  😏 <br/> 🐻‍❄️ MR. WHITE 🐻‍❄️
                         </p>
                       </div>
                     )}
