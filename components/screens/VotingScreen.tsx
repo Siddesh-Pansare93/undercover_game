@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import { useGameStore } from '@/store/gameStore';
+import { shuffleArray } from '@/lib/utils';
 
 export default function VotingScreen() {
   const { players, eliminatePlayer, setPhase } = useGameStore();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [randomizedPlayers, setRandomizedPlayers] = useState<typeof players>([]);
 
-  const alivePlayers = players.filter(p => p.isAlive);
+  // Randomize player order for voting
+  useEffect(() => {
+    const alive = players.filter(p => p.isAlive);
+    const shuffled = shuffleArray(alive);
+    setRandomizedPlayers(shuffled);
+  }, [players.filter(p => p.isAlive).length]); // Re-randomize when players change
+
+  const alivePlayers = randomizedPlayers.length > 0 ? randomizedPlayers : players.filter(p => p.isAlive);
 
   const handleSelectPlayer = (playerId: string) => {
     setSelectedPlayerId(playerId);

@@ -7,11 +7,13 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import { useGameStore } from '@/store/gameStore';
+import { shuffleArray } from '@/lib/utils';
 
 export default function VictoryScreen() {
   const { winner, players, wordPair, resetGame } = useGameStore();
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [showConfetti, setShowConfetti] = useState(true);
+  const [randomizedPlayers, setRandomizedPlayers] = useState(players);
 
   useEffect(() => {
     setWindowSize({
@@ -19,18 +21,21 @@ export default function VictoryScreen() {
       height: window.innerHeight,
     });
 
+    // Randomize player order for display
+    setRandomizedPlayers(shuffleArray(players));
+
     // Stop confetti after 5 seconds
     const timer = setTimeout(() => setShowConfetti(false), 5000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [players]);
 
   if (!winner) return null;
 
-  const winners = players.filter(p =>
+  const winners = randomizedPlayers.filter(p =>
     winner === 'civilians' ? p.role === 'civilian' : p.role === 'undercover' || p.role === 'mrwhite'
   );
 
-  const losers = players.filter(p =>
+  const losers = randomizedPlayers.filter(p =>
     winner === 'civilians' ? p.role !== 'civilian' : p.role === 'civilian'
   );
 
@@ -137,7 +142,7 @@ export default function VictoryScreen() {
               All Players & Roles
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {players.map((player, index) => (
+              {randomizedPlayers.map((player, index) => (
                 <motion.div
                   key={player.id}
                   initial={{ opacity: 0, scale: 0 }}

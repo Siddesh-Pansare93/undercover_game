@@ -1,16 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { useGameStore } from '@/store/gameStore';
 
+const STORAGE_KEY = 'undercover_player_names';
+
 export default function PlayerNamesScreen() {
   const { players, setPhase, updatePlayerNames } = useGameStore();
-  const [names, setNames] = useState<string[]>(
-    players.map(() => '')
-  );
+  
+  // Load saved names from localStorage
+  const loadSavedNames = (): string[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const savedNames = loadSavedNames();
+  const [names, setNames] = useState<string[]>(() => {
+    return players.map((_, index) => savedNames[index] || '');
+  });
+
+  // Update names when players change
+  useEffect(() => {
+    const saved = loadSavedNames();
+    setNames(players.map((_, index) => saved[index] || ''));
+  }, [players.length]);
 
   const handleNameChange = (index: number, name: string) => {
     const newNames = [...names];
@@ -21,6 +42,16 @@ export default function PlayerNamesScreen() {
   const handleContinue = () => {
     // Use custom names or default to Player X
     const finalNames = names.map((name, i) => name.trim() || `Player ${i + 1}`);
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(finalNames));
+      } catch (error) {
+        console.error('Failed to save names to localStorage:', error);
+      }
+    }
+    
     // Update player names in store
     updatePlayerNames(finalNames);
     // Move to role assignment
@@ -64,7 +95,7 @@ export default function PlayerNamesScreen() {
                   <div className="text-2xl sm:text-3xl flex-shrink-0">{player.avatar}</div>
                   <input
                     type="text"
-                    placeholder={`Player ${index + 1}`}
+                    placeholder={savedNames[index] || `Player ${index + 1}`}
                     value={names[index]}
                     onChange={(e) => handleNameChange(index, e.target.value)}
                     maxLength={20}

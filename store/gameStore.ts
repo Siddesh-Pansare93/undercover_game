@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { GameState, Player, Role, WordPair, GamePhase } from '@/types/game';
+import { shuffleArray } from '@/lib/utils';
 
 interface GameStore extends GameState {
   // Actions
@@ -30,14 +31,6 @@ const generatePlayers = (count: number): Player[] => {
   }));
 };
 
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
 
 export const useGameStore = create<GameStore>((set, get) => ({
   // Initial state
@@ -66,26 +59,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { players } = get();
     const shuffledPlayers = shuffleArray(players);
 
-    let undercoverAssigned = 0;
-    let mrWhiteAssigned = 0;
+    // Separate players by role
+    const roleAssignments: { player: Player; role: Role; word: string | null }[] = [];
+    
+    // Add undercover players
+    for (let i = 0; i < undercoverCount; i++) {
+      roleAssignments.push({
+        player: shuffledPlayers[i],
+        role: 'undercover' as Role,
+        word: wordPair.undercover_word,
+      });
+    }
+    
+    // Add Mr. White players
+    for (let i = 0; i < mrWhiteCount; i++) {
+      roleAssignments.push({
+        player: shuffledPlayers[undercoverCount + i],
+        role: 'mrwhite' as Role,
+        word: null,
+      });
+    }
+    
+    // Add civilian players
+    for (let i = undercoverCount + mrWhiteCount; i < shuffledPlayers.length; i++) {
+      roleAssignments.push({
+        player: shuffledPlayers[i],
+        role: 'civilian' as Role,
+        word: wordPair.civilian_word,
+      });
+    }
 
-    // Assign roles based on counts
-    const updatedPlayers = shuffledPlayers.map((player, index) => {
-      // Assign undercover roles first
-      if (undercoverAssigned < undercoverCount) {
-        undercoverAssigned++;
-        return { ...player, role: 'undercover' as Role, word: wordPair.undercover_word };
+    // Shuffle all role assignments BUT ensure Mr. White is never first
+    let shuffledRoles = shuffleArray(roleAssignments);
+    
+    // If Mr. White is first, swap with someone else
+    if (shuffledRoles[0]?.role === 'mrwhite') {
+      const firstNonWhiteIndex = shuffledRoles.findIndex(r => r.role !== 'mrwhite');
+      if (firstNonWhiteIndex !== -1) {
+        [shuffledRoles[0], shuffledRoles[firstNonWhiteIndex]] = 
+          [shuffledRoles[firstNonWhiteIndex], shuffledRoles[0]];
       }
-      // Then assign Mr. White roles
-      else if (mrWhiteAssigned < mrWhiteCount) {
-        mrWhiteAssigned++;
-        return { ...player, role: 'mrwhite' as Role, word: null };
-      }
-      // Rest are civilians
-      else {
-        return { ...player, role: 'civilian' as Role, word: wordPair.civilian_word };
-      }
-    });
+    }
+
+    // Create updated players array with randomized order
+    const updatedPlayers = shuffledRoles.map(({ player, role, word }) => ({
+      ...player,
+      role,
+      word,
+    }));
 
     set({ players: updatedPlayers, wordPair });
   },
@@ -123,23 +144,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const civiliansAlive = alivePlayers.filter(p => p.role === 'civilian').length;
     const infiltratorsAlive = undercoverAlive + mrWhiteAlive;
 
-    // Civilians win if ALL infiltrators are eliminated
-    if (infiltratorsAlive === 0) {
+    // Civilians win if ALL infiltrators are eliminated (both Undercover AND Mr. White)
+    if (infiltratorsAlive === 0 && civiliansAlive > 0) {
+      console.log('✓ Civilians win - all infiltrators eliminated');
       set({ winner: 'civilians', phase: 'victory' });
       return;
     }
 
-    // Infiltrators win if no civilians remain
-    if (civiliansAlive === 0) {
+    // Infiltrators win if only 1 civilian is left
+    if (civiliansAlive === 1 && infiltratorsAlive > 0) {
+      console.log('✓ Infiltrators win - only 1 civilian remains');
       set({ winner: 'infiltrators', phase: 'victory' });
       return;
     }
 
-    // Infiltrators win if they equal or outnumber civilians
-    if (infiltratorsAlive >= civiliansAlive) {
-      set({ winner: 'infiltrators', phase: 'victory' });
-      return;
-    }
+    // No victory condition met - game continues
+    console.log(`Game continues - Civilians: ${civiliansAlive}, Infiltrators: ${infiltratorsAlive}`);
   },
 
   resetGame: () => {

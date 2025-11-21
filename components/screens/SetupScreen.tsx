@@ -101,8 +101,8 @@ export default function SetupScreen() {
         <div className="space-y-6">
           <Card>
             <h3 className="font-semibold text-xl mb-4 text-white">Number of Players</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+            <div className="grid grid-cols-5 gap-2">
+              {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
                 <button
                   key={num}
                   onClick={() => handlePlayerCountChange(num)}

@@ -1,15 +1,25 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import { useGameStore } from '@/store/gameStore';
+import { shuffleArray } from '@/lib/utils';
 
 export default function GameScreen() {
   const { players, currentRound, phase, setPhase } = useGameStore();
+  const [randomizedPlayers, setRandomizedPlayers] = useState<typeof players>([]);
   
-  const alivePlayers = players.filter(p => p.isAlive);
+  // Randomize player order for display when round, phase changes, or when players are eliminated
+  useEffect(() => {
+    const alive = players.filter(p => p.isAlive);
+    const shuffled = shuffleArray([...alive]); // Create new array to trigger re-render
+    setRandomizedPlayers(shuffled);
+  }, [currentRound, phase, players.length, players.filter(p => p.isAlive).length]); // Re-randomize on new round/phase or when alive count changes
+  
+  const alivePlayers = randomizedPlayers.length > 0 ? randomizedPlayers : players.filter(p => p.isAlive);
   const allPlayersGaveClues = alivePlayers.every(p => p.hasGivenClue);
 
   const handleStartVoting = () => {
@@ -94,15 +104,20 @@ export default function GameScreen() {
           </motion.div>
         )}
 
-        {/* Players Grid */}
+        {/* Players Grid - Randomized Order */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-8">
-          {players.map((player, index) => {
+          {alivePlayers.map((player, index) => {
             const handleToggleClue = () => {
               if (!player.isAlive) return;
               const updatedPlayers = players.map(p =>
                 p.id === player.id ? { ...p, hasGivenClue: !p.hasGivenClue } : p
               );
               useGameStore.setState({ players: updatedPlayers });
+              
+              // Update randomized list to reflect clue status
+              setRandomizedPlayers(prev => 
+                prev.map(p => p.id === player.id ? { ...p, hasGivenClue: !p.hasGivenClue } : p)
+              );
             };
 
             return (
