@@ -20,7 +20,7 @@ export default function MrWhiteGuessScreen() {
       return;
     }
 
-    const civilianWord = wordPair?.civilian_word_hindi?.toLowerCase().trim();
+    const civilianWord = wordPair?.civilian_word?.toLowerCase().trim();
     const userGuess = guess.toLowerCase().trim();
     
     const correct = civilianWord === userGuess;
@@ -161,7 +161,7 @@ export default function MrWhiteGuessScreen() {
                   </h2>
                   <Card className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 mb-6">
                     <p className="text-white/90 text-lg mb-2">
-                      The civilian word was: <span className="font-bold">{wordPair?.civilian_word_hindi}</span>
+                      The civilian word was: <span className="font-bold">{wordPair?.civilian_word}</span>
                     </p>
                     <p className="text-white/70">
                       Mr. White has won! Infiltrators Victory!
@@ -187,7 +187,7 @@ export default function MrWhiteGuessScreen() {
                       Your guess: <span className="font-bold">{guess}</span>
                     </p>
                     <p className="text-white/90 text-lg mb-2">
-                      Correct word: <span className="font-bold">{wordPair?.civilian_word_hindi}</span>
+                      Correct word: <span className="font-bold">{wordPair?.civilian_word}</span>
                     </p>
                     <p className="text-white/70">
                       Better luck next time!

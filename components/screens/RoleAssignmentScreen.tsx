@@ -137,15 +137,15 @@ export default function RoleAssignmentScreen() {
               animate={{ scale: 1 }}
               transition={{ type: 'spring', duration: 0.6 }}
               className={`
-                bg-gradient-to-br ${getRoleColor(currentPlayer.role)}
+                bg-gradient-to-br from-gray-400 to-gray-600}
                 rounded-3xl p-8 mb-6 shadow-2xl
               `}
             >
               <div className="text-6xl mb-4">{currentPlayer.avatar}</div>
-              <h3 className="font-display text-2xl font-bold mb-2 text-white">
+              {/* <h3 className="font-display text-2xl font-bold mb-2 text-white">
                 {getRoleTitle(currentPlayer.role)}
               </h3>
-              <p className="text-white/90 mb-6">{getRoleDescription(currentPlayer.role)}</p>
+              <p className="text-white/90 mb-6">{getRoleDescription(currentPlayer.role)}</p> */}
 
               <AnimatePresence>
                 {showWord && (

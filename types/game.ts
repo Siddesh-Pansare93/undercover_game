@@ -23,8 +23,8 @@ export interface Player {
 }
 
 export interface WordPair {
-  civilian_word_hindi: string;
-  undercover_word_english: string;
+  civilian_word: string;
+  undercover_word: string;
   relationship: string;
 }
 

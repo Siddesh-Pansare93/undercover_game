@@ -172,12 +172,12 @@ export default function VictoryScreen() {
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="glass rounded-xl p-4 text-center">
-                  <p className="text-sm text-white/60 mb-2">Civilian Word (Hindi)</p>
-                  <p className="text-2xl font-bold text-blue-400">{wordPair.civilian_word_hindi}</p>
+                  <p className="text-sm text-white/60 mb-2">Civilian Word</p>
+                  <p className="text-2xl font-bold text-blue-400">{wordPair.civilian_word}</p>
                 </div>
                 <div className="glass rounded-xl p-4 text-center">
-                  <p className="text-sm text-white/60 mb-2">Undercover Word (English)</p>
-                  <p className="text-2xl font-bold text-red-400">{wordPair.undercover_word_english}</p>
+                  <p className="text-sm text-white/60 mb-2">Undercover Word</p>
+                  <p className="text-2xl font-bold text-red-400">{wordPair.undercover_word}</p>
                 </div>
               </div>
               <div className="mt-4 text-center">

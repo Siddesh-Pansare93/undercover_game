@@ -87,15 +87,16 @@ Generate one word pair for an Undercover-style party game.
 
 Rules:
 1) Return a JSON object exactly matching the structure below.
-2) civilian_word_hindi: a single word or short single-token phrase (prefer Hindi in Devanagari or English depending on requested mode)
-3) undercover_word_english: a related word (same language as civilian_word_hindi) but slightly different to create ambiguity in clues.
+2) civilian_word: a single English word or short phrase (word origin can be from English or Hindi culture, but always written in English letters/spelling)
+3) undercover_word: a related English word (same language/spelling) but slightly different to create ambiguity in clues (word origin can also be from English or Hindi culture)
 4) relationship: 1-line description of how the two words are related.
-5) Words must be safe for all ages and not political, violent, or obscene.
+5) Both words must be in English spelling/format only (Roman script), but concepts can come from any cultural origin.
+6) Words must be safe for all ages and not political, violent, or obscene.
 
 Output EXACT structure (no extra fields):
 {
-  "civilian_word_hindi": "string",
-  "undercover_word_english": "string",
+  "civilian_word": "string",
+  "undercover_word": "string",
   "relationship": "string"
 }
 
@@ -162,8 +163,8 @@ Difficulty guidance: ${difficultyPrompts[difficulty]}.`;
     let wordPair: WordPair | null = null;
 
     if (parsed) {
-      const c = parsed['civilian_word_hindi'];
-      const u = parsed['undercover_word_english'];
+      const c = parsed['civilian_word'];
+      const u = parsed['undercover_word'];
       const r = parsed['relationship'];
 
       if (
@@ -175,8 +176,8 @@ Difficulty guidance: ${difficultyPrompts[difficulty]}.`;
         r.trim()
       ) {
         wordPair = {
-          civilian_word_hindi: c.trim(),
-          undercover_word_english: u.trim(),
+          civilian_word: c.trim(),
+          undercover_word: u.trim(),
           relationship: r.trim(),
         } as WordPair;
       }

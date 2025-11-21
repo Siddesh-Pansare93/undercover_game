@@ -74,7 +74,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // Assign undercover roles first
       if (undercoverAssigned < undercoverCount) {
         undercoverAssigned++;
-        return { ...player, role: 'undercover' as Role, word: wordPair.undercover_word_english };
+        return { ...player, role: 'undercover' as Role, word: wordPair.undercover_word };
       }
       // Then assign Mr. White roles
       else if (mrWhiteAssigned < mrWhiteCount) {
@@ -83,7 +83,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       // Rest are civilians
       else {
-        return { ...player, role: 'civilian' as Role, word: wordPair.civilian_word_hindi };
+        return { ...player, role: 'civilian' as Role, word: wordPair.civilian_word };
       }
     });
 
