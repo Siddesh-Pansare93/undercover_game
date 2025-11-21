@@ -1,90 +1,205 @@
+// app/api/generate-words/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { WordPair } from '@/types/game';
 import { getRandomWordPair } from '@/data/fallbackWords';
 
-export async function POST(request: NextRequest) {
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+interface GenerateRequestBody {
+  difficulty?: Difficulty;
+  apiKey?: string;
+  modelName?: string;
+}
+
+function safeParseJSON<T = unknown>(raw: string): T | null {
   try {
-    const { difficulty, apiKey } = await request.json();
-
-    // Validate inputs
-    if (!difficulty || !['easy', 'medium', 'hard'].includes(difficulty)) {
-      return NextResponse.json(
-        { error: 'Invalid difficulty level' },
-        { status: 400 }
-      );
-    }
-
-    // Type assertion after validation
-    const validDifficulty = difficulty as 'easy' | 'medium' | 'hard';
-
-    // Use environment variable or provided API key
-    const geminiApiKey = apiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-    if (!geminiApiKey) {
-      // Fallback to local words
-      const wordPair = getRandomWordPair(validDifficulty);
-      return NextResponse.json({ wordPair });
-    }
-
-    // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-    const difficultyPrompts: Record<'easy' | 'medium' | 'hard', string> = {
-      easy: 'common, everyday objects and concepts that everyone knows',
-      medium: 'moderately familiar concepts requiring some thought',
-      hard: 'abstract concepts, similar meanings, or subtle differences',
-    };
-
-    const prompt = `Generate a word pair for an Undercover party game with ${difficultyPrompts[validDifficulty]} difficulty.
-
-Rules:
-1. BOTH words must be in the SAME language (either both Hindi in Devanagari script OR both English)
-2. The words should be related but different enough to create interesting gameplay
-3. Words must be appropriate for all ages (no obscene, political, violent, or sensitive content)
-4. Difficulty: ${validDifficulty}
-
-Return ONLY a valid JSON object with this exact structure (no markdown, no additional text):
-{
-  "civilian_word_hindi": "word in same language",
-  "undercover_word_english": "related word in same language",
-  "relationship": "brief description of how they relate"
-}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // Parse the JSON response
-    let wordPair: WordPair;
-    try {
-      // Remove any markdown code blocks if present
-      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      wordPair = JSON.parse(cleanText);
-    } catch (parseError) {
-      console.error('Failed to parse AI response, using fallback:', parseError);
-      wordPair = getRandomWordPair(validDifficulty);
-    }
-
-    // Validate the structure
-    if (
-      !wordPair.civilian_word_hindi ||
-      !wordPair.undercover_word_english ||
-      !wordPair.relationship
-    ) {
-      throw new Error('Invalid word pair structure');
-    }
-
-    return NextResponse.json({ wordPair });
-  } catch (error) {
-    console.error('Error in generate-words API:', error);
-    
-    // Fallback to local words on error
-    const { difficulty } = await request.json();
-    const wordPair = getRandomWordPair(difficulty || 'medium');
-    
-    return NextResponse.json({ wordPair });
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
   }
 }
 
+function normalizeText(raw: unknown): string {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw;
+  try {
+    return String(raw);
+  } catch {
+    return '';
+  }
+}
+
+export async function POST(request: NextRequest) {
+  // Accept JSON body
+  let body: GenerateRequestBody = {};
+  try {
+    body = (await request.json()) as GenerateRequestBody;
+  } catch {
+    // ignore, we'll validate later
+  }
+
+  const difficulty: Difficulty = (body.difficulty || 'medium') as Difficulty;
+  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+    return NextResponse.json({ error: 'Invalid difficulty level' }, { status: 400 });
+  }
+
+  // Prefer explicit apiKey in body, then env var(s)
+  const geminiApiKey =
+    body.apiKey ||
+    process.env.GEMINI_API_KEY ||
+    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY;
+
+  console.log('=== GEMINI API DEBUG ===');
+  console.log('Body API Key:', body.apiKey ? `YES (${body.apiKey.substring(0, 10)}...)` : 'NO');
+  console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'YES' : 'NO');
+  console.log('NEXT_PUBLIC_GEMINI_API_KEY:', process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'YES' : 'NO');
+  console.log('GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY ? 'YES' : 'NO');
+  console.log('Final geminiApiKey:', geminiApiKey ? `YES (${geminiApiKey.substring(0, 10)}...)` : 'NO');
+  console.log('========================');
+
+  // If no API key, return local fallback immediately
+  if (!geminiApiKey) {
+    console.log('⚠️  NO API KEY FOUND - Using fallback words');
+    const fallback = getRandomWordPair(difficulty);
+    return NextResponse.json({ wordPair: fallback, source: 'fallback' , geminiApiKey: geminiApiKey });
+  }
+
+  console.log('✓ API Key found, attempting Gemini API call...');
+
+  // Model selection: allow override via request, then env var, then default
+  const modelName =
+    body.modelName ||
+    process.env.GEMINI_MODEL_NAME ||
+    process.env.NEXT_PUBLIC_GEMINI_MODEL_NAME ||
+    'gemini-2.5-flash';
+
+  const difficultyPrompts: Record<Difficulty, string> = {
+    easy: 'common, everyday objects and concepts that everyone knows',
+    medium: 'moderately familiar concepts requiring some thought',
+    hard: 'abstract concepts, similar meanings, or subtle differences',
+  };
+
+  // IMPORTANT: keep the response strictly JSON only in the prompt so parsing is robust
+  const prompt = `You are a helpful assistant that returns ONLY a single JSON object (no markdown, no explanations).
+Generate one word pair for an Undercover-style party game.
+
+Rules:
+1) Return a JSON object exactly matching the structure below.
+2) civilian_word_hindi: a single word or short single-token phrase (prefer Hindi in Devanagari or English depending on requested mode)
+3) undercover_word_english: a related word (same language as civilian_word_hindi) but slightly different to create ambiguity in clues.
+4) relationship: 1-line description of how the two words are related.
+5) Words must be safe for all ages and not political, violent, or obscene.
+
+Output EXACT structure (no extra fields):
+{
+  "civilian_word_hindi": "string",
+  "undercover_word_english": "string",
+  "relationship": "string"
+}
+
+Difficulty guidance: ${difficultyPrompts[difficulty]}.`;
+
+  try {
+    console.log('Initializing GoogleGenAI client...');
+    // Initialize client
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+
+    console.log(`Calling Gemini model: ${modelName}...`);
+    // Call the generateContent API (docs/examples use `models.generateContent` with `contents`)
+    const response = await ai.models.generateContent({
+      model: modelName,
+      // `contents`/`content` shape is SDK dependent; `contents` (string) is supported in examples.
+      contents: prompt,
+      // Optionally you can add settings like temperature, maxOutputTokens if supported by your SDK version:
+      // temperature: 0.2,
+      // maxOutputTokens: 256,
+    });
+
+    console.log('✓ Gemini API call successful');
+    // The official SDK returns `response.text` (string). Use that.
+    const rawText = normalizeText((response as any).text ?? '');
+    console.log('Raw response text:', rawText.substring(0, 200));
+
+    // If the SDK returned an array/staged output, also try to resolve it:
+    let candidateText = rawText;
+    if (!candidateText) {
+      // Try alternative common fields (defensive): e.g., response.output[0].content[0].text
+      try {
+        const maybe = (response as any).output ?? (response as any).candidates;
+        if (Array.isArray(maybe) && maybe.length > 0) {
+          // drill down for text
+          const textFromCandidates =
+            maybe[0]?.content?.[0]?.text ||
+            maybe[0]?.text ||
+            maybe[0]?.output_text ||
+            '';
+          candidateText = normalizeText(textFromCandidates);
+        }
+      } catch {
+        candidateText = '';
+      }
+    }
+
+    // Remove possible markdown fences and stray content
+    const cleaned = (candidateText || '')
+      .replace(/```(?:json)?\n?/g, '')
+      .replace(/<\/?[^>]+(>|$)/g, '') // strip HTML tags if any
+      .trim();
+
+    // Try to parse JSON
+    let parsed = safeParseJSON<Record<string, unknown>>(cleaned);
+
+    // If parse failed, attempt to extract JSON substring
+    if (!parsed) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = safeParseJSON<Record<string, unknown>>(jsonMatch[0]);
+      }
+    }
+
+    let wordPair: WordPair | null = null;
+
+    if (parsed) {
+      const c = parsed['civilian_word_hindi'];
+      const u = parsed['undercover_word_english'];
+      const r = parsed['relationship'];
+
+      if (
+        typeof c === 'string' &&
+        typeof u === 'string' &&
+        typeof r === 'string' &&
+        c.trim() &&
+        u.trim() &&
+        r.trim()
+      ) {
+        wordPair = {
+          civilian_word_hindi: c.trim(),
+          undercover_word_english: u.trim(),
+          relationship: r.trim(),
+        } as WordPair;
+      }
+    }
+
+    // If we couldn't parse or validation failed, fallback to local words
+    if (!wordPair) {
+      console.warn('⚠️  AI response invalid or parse failed. Falling back to local words.');
+      wordPair = getRandomWordPair(difficulty);
+      return NextResponse.json({ wordPair, source: 'fallback-parse-error' , geminiApiKey: geminiApiKey });
+    }
+
+    console.log('✓ Successfully generated word pair from Gemini!');
+    console.log('Word pair:', wordPair);
+    return NextResponse.json({ wordPair, source: 'gemini' , geminiApiKey: geminiApiKey });
+  } catch (err) {
+    console.error('=== ERROR in generate-words handler ===');
+    console.error('Error type:', err instanceof Error ? err.constructor.name : typeof err);
+    console.error('Error message:', err instanceof Error ? err.message : String(err));
+    console.error('Full error:', err);
+    console.log('Returning fallback words due to error');
+    // On any error return local fallback
+    const fallback = getRandomWordPair(difficulty);
+    return NextResponse.json({ wordPair: fallback, source: 'fallback-error' , geminiApiKey: geminiApiKey });
+  }
+}
